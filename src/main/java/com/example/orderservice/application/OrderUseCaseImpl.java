@@ -1,5 +1,6 @@
 package com.example.orderservice.application;
 
+import com.example.orderservice.domain.event.OrderCreatedEvent;
 import com.example.orderservice.domain.exception.OrderNotFoundException;
 import com.example.orderservice.domain.exception.ProductNotFoundException;
 import com.example.orderservice.domain.model.*;
@@ -7,10 +8,9 @@ import com.example.orderservice.domain.port.input.OrderUseCase;
 import com.example.orderservice.domain.port.output.NotificationPort;
 import com.example.orderservice.domain.port.output.OrderRepositoryPort;
 import com.example.orderservice.domain.port.output.ProductRepositoryPort;
-import com.example.orderservice.infrastructure.notification.NotificationAdapter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,6 +26,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final OrderRepositoryPort orderRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final NotificationPort notificationPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Order createOrder(String customerId, List<String> productIds) {
@@ -37,7 +38,6 @@ public class OrderUseCaseImpl implements OrderUseCase {
         if (products.isEmpty()) {
             throw new ProductNotFoundException(productIds.toString());
         }
-
 
         // 2. Sipariş itemlarını oluştur
         List<OrderItem> items = products.stream()
@@ -69,6 +69,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // 6. Bildirim gönder (Async olacak)
         notificationPort.sendOrderConfirmation(savedOrder);
+        eventPublisher.publishEvent(new OrderCreatedEvent(this, savedOrder));
 
         return savedOrder;
     }
